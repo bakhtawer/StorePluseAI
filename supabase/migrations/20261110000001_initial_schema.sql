@@ -259,10 +259,33 @@ CREATE TABLE IF NOT EXISTS public.audit_findings (
     issue_name TEXT NOT NULL,
     affected_url TEXT NOT NULL,
     evidence TEXT NOT NULL,
+    root_cause TEXT,
     explanation TEXT NOT NULL,
     recommended_solution TEXT NOT NULL,
+    solution_steps TEXT[] NOT NULL DEFAULT '{}',
+    code_snippet TEXT,
+    platform_solutions JSONB NOT NULL DEFAULT '{"shopify": null, "woocommerce": null, "custom": null}'::jsonb,
     is_measured BOOLEAN NOT NULL DEFAULT true, -- true = measured, false = inferred
     metadata JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+-- ----------------------------------------------------------------------------
+-- 11b. AUDIT SOLUTIONS KNOWLEDGE BASE (Pre-seeded templates and code fixes)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.audit_solutions_knowledge_base (
+    id TEXT PRIMARY KEY,
+    issue_name TEXT NOT NULL,
+    category audit_category NOT NULL,
+    severity finding_severity NOT NULL,
+    root_cause TEXT NOT NULL,
+    explanation TEXT NOT NULL,
+    recommended_solution TEXT NOT NULL,
+    solution_steps TEXT[] NOT NULL DEFAULT '{}',
+    code_snippet TEXT,
+    shopify_solution TEXT,
+    woocommerce_solution TEXT,
+    custom_solution TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
@@ -482,3 +505,114 @@ ON CONFLICT (id) DO UPDATE SET
     can_access_ai_assistant = EXCLUDED.can_access_ai_assistant,
     can_run_monitoring = EXCLUDED.can_run_monitoring,
     features_list = EXCLUDED.features_list;
+
+-- ----------------------------------------------------------------------------
+-- SEED AUDIT SOLUTIONS KNOWLEDGE BASE (Step-by-step guides & code fixes)
+-- ----------------------------------------------------------------------------
+INSERT INTO public.audit_solutions_knowledge_base (
+    id, issue_name, category, severity, root_cause, explanation, recommended_solution,
+    solution_steps, code_snippet, shopify_solution, woocommerce_solution, custom_solution
+) VALUES
+(
+    'f-seo-title-missing',
+    'Missing Primary <title> Tag',
+    'technical_seo',
+    'critical',
+    'The storefront theme or template omitted the primary HTML title tag in document <head>.',
+    'Search engines require page titles to understand target queries and generate search snippet headers.',
+    'Add a descriptive title between 50-60 characters incorporating primary store keywords and brand identity.',
+    ARRAY[
+        'Identify the primary commercial keywords representing your store collection.',
+        'Format title as: Primary Commercial Niche - Top Benefit | Brand Name.',
+        'Keep overall length strictly between 50 and 60 characters to avoid search snippet ellipsis.',
+        'Deploy in your theme template and verify using Google Rich Results test.'
+    ],
+    '<title>Handcrafted Goods & Luxury Travel Essentials | Northwind Co.</title>',
+    'Go to Shopify Admin > Online Store > Preferences. Under "Title and meta description", enter your Homepage Title (50-60 chars). Click Save.',
+    'In WordPress Admin, go to SEO (Yoast or RankMath) > Search Appearance > Homepage, or Settings > General to set Site Title.',
+    'Add `<title>Your Store Name - Best E-Commerce Collection</title>` inside the `<head>` tag of your index.html or layout template.'
+),
+(
+    'f-seo-meta-desc-missing',
+    'Missing Meta Description',
+    'technical_seo',
+    'high',
+    'No meta description tag was configured in theme settings or document head.',
+    'Without a defined meta description, search engines pull arbitrary text snippets which lowers organic click-through rates (CTR).',
+    'Define a compelling, conversion-focused meta description between 120-155 characters featuring value proposition and incentives.',
+    ARRAY[
+        'Draft a 130-155 character description summarizing store USP.',
+        'Include clear buyer incentives: free shipping, warranty, or promo code.',
+        'End with an actionable call-to-action (e.g. "Shop the new arrivals today").'
+    ],
+    '<meta name="description" content="Discover handcrafted leather goods and luxury travel essentials. Free worldwide shipping on orders over $75. Explore our sustainable collection today.">',
+    'Go to Online Store > Preferences. Fill in the "Homepage meta description" field with 130-155 characters. Click Save.',
+    'Open WordPress Admin > Pages > Edit Homepage. Scroll down to Yoast SEO / RankMath and fill in Meta Description.',
+    'Add `<meta name="description" content="...">` to the `<head>` block of your main HTML document.'
+),
+(
+    'f-seo-h1-missing',
+    'No <h1> Heading Tag Found',
+    'technical_seo',
+    'high',
+    'Hero banner headlines are coded with <div>, <span>, or <h2> instead of semantic <h1>.',
+    'The H1 tag serves as the primary content anchor for both screen readers and search crawlers.',
+    'Include exactly one prominent <h1> tag on the homepage encapsulating your primary store category or brand statement.',
+    ARRAY[
+        'Locate the primary headline in your hero banner component.',
+        'Change HTML tag wrapper to <h1> while preserving design typography classes.',
+        'Ensure only one <h1> tag is output on the page.'
+    ],
+    '<h1 class="hero-title text-4xl font-bold">Premium Sustainable Apparel for Modern Living</h1>',
+    'In Shopify Theme Customizer, select your Image Banner or Hero section. Under Typography settings, ensure heading is set to H1.',
+    'In Elementor / Gutenberg, edit your homepage hero widget and set the HTML Tag dropdown to H1.',
+    'Wrap your hero section title text in an `<h1>` tag in your JSX/HTML template.'
+),
+(
+    'f-prod-schema-missing',
+    'Structured Data Schema (JSON-LD) Missing',
+    'product_optimization',
+    'high',
+    'Store lacks automated JSON-LD structured data generation.',
+    'Search engines use Product and Merchant schemas to display rich results (star ratings, prices, availability, badges) in Google Shopping.',
+    'Embed schema.org JSON-LD scripts with Organization, WebSite, and Product entity specifications.',
+    ARRAY[
+        'Generate structured schema JSON-LD with store name, logo, URL, and search action.',
+        'Embed the schema in a <script type="application/ld+json"> tag in the homepage head.',
+        'Validate markup with Google Search Console Rich Results Test.'
+    ],
+    '<script type="application/ld+json">{"@context":"https://schema.org","@type":"OnlineStore","name":"Store Name","url":"https://example.com"}</script>',
+    'Install a dedicated structured data app or paste JSON-LD snippet into snippets/structured-data.liquid and include in theme.liquid.',
+    'Enable Schema settings in Yoast SEO or RankMath WooCommerce integration.',
+    'Embed the JSON-LD snippet above into your document <head>.'
+),
+(
+    'f-trust-no-https',
+    'Unencrypted HTTP Connection (No SSL/TLS)',
+    'trust_signals',
+    'critical',
+    'SSL certificate is missing, expired, or web server is not forcing HTTPS redirects.',
+    'Browsers display a prominent "Not Secure" warning in the address bar, causing buyers to immediately abandon checkout.',
+    'Install an SSL certificate and configure 301 permanent redirects from HTTP to HTTPS across all routes.',
+    ARRAY[
+        'Provision an SSL certificate via Let''s Encrypt or your cloud host.',
+        'Configure web server to return 301 redirect for all port 80 requests.',
+        'Verify SSL rating with SSL Labs test.'
+    ],
+    'server { listen 80; server_name example.com; return 301 https://$host$request_uri; }',
+    'Shopify enforces SSL automatically; check domain status in Settings > Domains to verify DNS CNAME propagation.',
+    'In WordPress Settings > General, update WordPress Address and Site Address to start with https://.',
+    'Install certbot / Let''s Encrypt certificate and enable automatic HTTPS redirect on your reverse proxy.'
+)
+ON CONFLICT (id) DO UPDATE SET
+    issue_name = EXCLUDED.issue_name,
+    category = EXCLUDED.category,
+    severity = EXCLUDED.severity,
+    root_cause = EXCLUDED.root_cause,
+    explanation = EXCLUDED.explanation,
+    recommended_solution = EXCLUDED.recommended_solution,
+    solution_steps = EXCLUDED.solution_steps,
+    code_snippet = EXCLUDED.code_snippet,
+    shopify_solution = EXCLUDED.shopify_solution,
+    woocommerce_solution = EXCLUDED.woocommerce_solution,
+    custom_solution = EXCLUDED.custom_solution;

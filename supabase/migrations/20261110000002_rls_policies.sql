@@ -60,6 +60,11 @@ ALTER TABLE public.monitoring_results ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.team_invitations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.admin_audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.audit_solutions_knowledge_base ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can view knowledge base solutions"
+    ON public.audit_solutions_knowledge_base FOR SELECT
+    USING (true);
 
 -- ----------------------------------------------------------------------------
 -- 1. PROFILES POLICIES

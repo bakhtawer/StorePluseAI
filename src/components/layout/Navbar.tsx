@@ -69,16 +69,18 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
         </nav>
 
-        {/* Zone 3: Primary action & configuration button */}
+        {/* Zone 3: Primary action */}
         <div className="flex items-center gap-3 shrink-0">
-          <button
-            onClick={onOpenDatabaseSetup}
-            title={isConfigured ? 'Supabase Connected' : 'Configure Supabase Connection'}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-slate-700 bg-slate-900/80 text-slate-300 hover:text-white hover:border-slate-600 transition-colors whitespace-nowrap shrink-0"
-          >
-            <Database className={`w-3.5 h-3.5 ${isConfigured ? 'text-emerald-400' : 'text-amber-400'}`} />
-            <span className="hidden sm:inline">{isConfigured ? 'Supabase Live' : 'Supabase Setup'}</span>
-          </button>
+          {profile?.system_role === 'admin' && (
+            <button
+              onClick={onOpenDatabaseSetup}
+              title="Super Admin Database Configuration"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md border border-slate-700 bg-slate-900/80 text-slate-300 hover:text-white hover:border-slate-600 transition-colors whitespace-nowrap shrink-0"
+            >
+              <Database className="w-3.5 h-3.5 text-blue-400" />
+              <span className="hidden sm:inline">Admin Config</span>
+            </button>
+          )}
 
           {user ? (
             <button

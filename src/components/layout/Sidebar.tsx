@@ -143,16 +143,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Bottom Configuration & Profile */}
       <div className="p-3 border-t border-slate-800 space-y-2">
-        <button
-          onClick={onOpenDatabaseSetup}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <Database className="w-4 h-4 text-emerald-400" />
-            <span>Supabase Config</span>
-          </div>
-          <span className="text-[10px] text-emerald-400">PostgreSQL</span>
-        </button>
+        {profile?.system_role === 'admin' && (
+          <button
+            onClick={onOpenDatabaseSetup}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <Database className="w-4 h-4 text-emerald-400" />
+              <span>Admin Database</span>
+            </div>
+            <span className="text-[10px] text-emerald-400 font-mono">Config</span>
+          </button>
+        )}
 
         {/* Profile Card */}
         <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800/80 flex items-center justify-between">

@@ -2,6 +2,26 @@ import https from 'https';
 import http from 'http';
 import { URL } from 'url';
 
+export interface AuditFindingDetail {
+  id: string;
+  category: string;
+  severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
+  issue_name: string;
+  affected_url: string;
+  evidence: string;
+  explanation: string;
+  recommended_solution: string;
+  solution_steps: string[];
+  code_snippet?: string;
+  platform_solutions: {
+    shopify: string;
+    woocommerce: string;
+    custom: string;
+  };
+  root_cause?: string;
+  is_measured: boolean;
+}
+
 export interface AuditReportData {
   id: string;
   target_url: string;
@@ -24,17 +44,7 @@ export interface AuditReportData {
   };
   scoring_weights: Record<string, string>;
   executive_summary: string;
-  findings: Array<{
-    id: string;
-    category: string;
-    severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
-    issue_name: string;
-    affected_url: string;
-    evidence: string;
-    explanation: string;
-    recommended_solution: string;
-    is_measured: boolean;
-  }>;
+  findings: AuditFindingDetail[];
   quick_wins: string[];
   thirty_day_roadmap: Array<{
     week: string;
@@ -314,8 +324,6 @@ export async function analyzeStoreUrl(inputUrl: string): Promise<AuditReportData
   const responseTimeMs = fetchResult.durationMs;
 
   // 3. DETERMINISTIC SCORING ENGINE (v1.0.0)
-  // Each category is scored 0-100 based on measured conditions
-
   // Technical SEO (20%)
   let seoScore = 100;
   if (!pageTitle) seoScore -= 30;
@@ -381,7 +389,6 @@ export async function analyzeStoreUrl(inputUrl: string): Promise<AuditReportData
   healthScore = Math.max(20, Math.min(100, healthScore));
 
   // Overall Weighted Score
-  // Weights: SEO: 0.20, Perf: 0.20, UX: 0.20, Product: 0.15, Trust: 0.10, Content: 0.10, Health: 0.05
   const overallScore = Math.round(
     seoScore * 0.2 +
       perfScore * 0.2 +
@@ -392,10 +399,10 @@ export async function analyzeStoreUrl(inputUrl: string): Promise<AuditReportData
       healthScore * 0.05
   );
 
-  // 4. GENERATE GRANULAR AUDIT FINDINGS
-  const findings: AuditReportData['findings'] = [];
+  // 4. GENERATE DETAILED FINDINGS WITH STEP-BY-STEP SOLUTIONS & CODE
+  const findings: AuditFindingDetail[] = [];
 
-  // Findings: Technical SEO
+  // Finding 1: Title Tag
   if (!pageTitle) {
     findings.push({
       id: 'f-seo-title-missing',
@@ -404,8 +411,21 @@ export async function analyzeStoreUrl(inputUrl: string): Promise<AuditReportData
       issue_name: 'Missing Primary <title> Tag',
       affected_url: target,
       evidence: '<title> element not discovered in <head>',
+      root_cause: 'The storefront theme or template omitted the primary HTML title tag in document <head>.',
       explanation: 'Search engines require page titles to understand target queries and generate search snippet headers.',
       recommended_solution: 'Add a descriptive title between 50-60 characters incorporating primary store keywords and brand identity.',
+      solution_steps: [
+        'Identify the primary commercial keywords representing your store collection.',
+        'Format title as: Primary Commercial Niche - Top Benefit | Brand Name.',
+        'Keep overall length strictly between 50 and 60 characters to avoid search snippet ellipsis.',
+        'Deploy in your theme template and verify using Google Rich Results test.',
+      ],
+      code_snippet: `<title>Handcrafted Goods & Luxury Travel Essentials | Northwind Co.</title>`,
+      platform_solutions: {
+        shopify: 'Go to Shopify Admin > Online Store > Preferences. Under "Title and meta description", enter your Homepage Title (50-60 chars). Click Save.',
+        woocommerce: 'In WordPress Admin, go to SEO (Yoast or RankMath) > Search Appearance > Homepage, or Settings > General to set Site Title.',
+        custom: 'Add `<title>Your Store Name - Best E-Commerce Collection</title>` inside the `<head>` tag of your index.html or layout template.',
+      },
       is_measured: true,
     });
   } else if (pageTitle.length < 30 || pageTitle.length > 70) {
@@ -413,15 +433,28 @@ export async function analyzeStoreUrl(inputUrl: string): Promise<AuditReportData
       id: 'f-seo-title-length',
       category: 'technical_seo',
       severity: 'medium',
-      issue_name: 'Title Length Suboptimal for Search Snippets',
+      issue_name: 'Title Tag Length Suboptimal for Search Snippets',
       affected_url: target,
-      evidence: `Title is ${pageTitle.length} characters: "${pageTitle.substring(0, 40)}..."`,
-      explanation: 'Search engines display up to ~60 characters before truncating with ellipses. Too short titles fail to communicate keyword context.',
+      evidence: `Title is ${pageTitle.length} characters: "${pageTitle.substring(0, 45)}..."`,
+      root_cause: pageTitle.length < 30 ? 'Title is too concise and fails to include high-intent keywords.' : 'Title exceeds 60 characters and will be cut off by search engines.',
+      explanation: 'Search engines display approximately 55-60 characters before truncating with an ellipsis. Too short titles waste valuable search real estate.',
       recommended_solution: 'Tune title length to 50-60 characters, placing primary keyword first followed by store brand.',
+      solution_steps: [
+        'Audit current character count and identify which non-essential words can be trimmed or added.',
+        'Ensure primary keyword appears in the first 35 characters for maximum click-through relevance.',
+        'Preview how the snippet looks on mobile search result viewports.',
+      ],
+      code_snippet: `<title>Ergonomic Office Furniture & Active Standing Desks | ErgoPulse</title>`,
+      platform_solutions: {
+        shopify: 'In Shopify Admin, navigate to Online Store > Preferences. Edit Homepage Title to be 50-60 characters.',
+        woocommerce: 'Edit Homepage in WordPress Admin > Yoast / RankMath snippet editor > update SEO Title field.',
+        custom: 'Update the string in your `<title>` tag inside your layout/header component.',
+      },
       is_measured: true,
     });
   }
 
+  // Finding 2: Meta Description
   if (!metaDescription) {
     findings.push({
       id: 'f-seo-meta-desc-missing',
@@ -430,12 +463,25 @@ export async function analyzeStoreUrl(inputUrl: string): Promise<AuditReportData
       issue_name: 'Missing Meta Description',
       affected_url: target,
       evidence: '<meta name="description"> tag missing from document head',
+      root_cause: 'No meta description tag was configured in theme settings or document head.',
       explanation: 'Without a defined meta description, search engines pull arbitrary text snippets which lowers organic click-through rates (CTR).',
       recommended_solution: 'Define a compelling, conversion-focused meta description between 120-155 characters featuring value proposition and incentives.',
+      solution_steps: [
+        'Draft a 130-155 character description summarizing store USP.',
+        'Include clear buyer incentives: free shipping, warranty, or promo code.',
+        'End with an actionable call-to-action (e.g. "Shop the new arrivals today").',
+      ],
+      code_snippet: `<meta name="description" content="Discover handcrafted leather goods and luxury travel essentials. Free worldwide shipping on orders over $75. Explore our sustainable collection today.">`,
+      platform_solutions: {
+        shopify: 'Go to Online Store > Preferences. Fill in the "Homepage meta description" field with 130-155 characters. Click Save.',
+        woocommerce: 'Open WordPress Admin > Pages > Edit Homepage. Scroll down to Yoast SEO / RankMath and fill in Meta Description.',
+        custom: 'Add `<meta name="description" content="...">` to the `<head>` block of your main HTML document.',
+      },
       is_measured: true,
     });
   }
 
+  // Finding 3: Heading Tag Structure
   if (h1Matches.length === 0) {
     findings.push({
       id: 'f-seo-h1-missing',
@@ -444,8 +490,20 @@ export async function analyzeStoreUrl(inputUrl: string): Promise<AuditReportData
       issue_name: 'No <h1> Heading Tag Found',
       affected_url: target,
       evidence: 'Zero <h1> elements located in page markup',
-      explanation: 'The H1 tag serves as the main content anchor for both screen readers and search crawlers.',
+      root_cause: 'Hero banner headlines are coded with <div>, <span>, or <h2> instead of semantic <h1>.',
+      explanation: 'The H1 tag serves as the primary content anchor for both screen readers and search crawlers.',
       recommended_solution: 'Include exactly one prominent <h1> tag on the homepage encapsulating your primary store category or brand statement.',
+      solution_steps: [
+        'Locate the primary headline in your hero banner component.',
+        'Change HTML tag wrapper to <h1> while preserving design typography classes.',
+        'Ensure only one <h1> tag is output on the page.',
+      ],
+      code_snippet: `<h1 class="hero-title text-4xl font-bold">Premium Sustainable Apparel for Modern Living</h1>`,
+      platform_solutions: {
+        shopify: 'In Shopify Theme Customizer, select your Image Banner or Hero section. Under Typography settings, ensure heading is set to H1.',
+        woocommerce: 'In Elementor / Gutenberg, edit your homepage hero widget and set the HTML Tag dropdown to H1.',
+        custom: 'Wrap your hero section title text in an `<h1>` tag in your JSX/HTML template.',
+      },
       is_measured: true,
     });
   } else if (h1Matches.length > 1) {
@@ -455,13 +513,26 @@ export async function analyzeStoreUrl(inputUrl: string): Promise<AuditReportData
       severity: 'medium',
       issue_name: 'Multiple <h1> Heading Tags Detected',
       affected_url: target,
-      evidence: `Found ${h1Matches.length} distinct <h1> tags`,
-      explanation: 'Multiple H1 tags dilute topic clarity. Standards recommend a single top-level H1 followed by structured H2/H3 hierarchies.',
+      evidence: `Found ${h1Matches.length} distinct <h1> tags on the homepage`,
+      root_cause: 'Multiple sections or product carousel blocks inadvertently use H1 instead of H2/H3.',
+      explanation: 'Multiple H1 tags dilute topic hierarchy. Standards recommend a single top-level H1 followed by structured H2/H3 hierarchies.',
       recommended_solution: 'Consolidate page structure so only the primary headline uses <h1>, converting secondary headers into <h2>.',
+      solution_steps: [
+        'Identify all H1 occurrences across the homepage sections.',
+        'Keep the single most descriptive brand/category header as <h1>.',
+        'Downgrade secondary section headers (Featured Products, About Us, Reviews) to <h2>.',
+      ],
+      code_snippet: `<!-- Primary headline -->\n<h1>Modern Minimalist Home Decor</h1>\n\n<!-- Secondary sections -->\n<h2>Featured Seasonal Collection</h2>\n<h2>Customer Reviews</h2>`,
+      platform_solutions: {
+        shopify: 'In Theme Customizer, check secondary sections (Featured Collection, Rich Text) and change their Heading Tag setting from H1 to H2.',
+        woocommerce: 'In your page builder, change sub-section headers to H2.',
+        custom: 'Refactor secondary `<h1>` tags into `<h2>` in your template code.',
+      },
       is_measured: true,
     });
   }
 
+  // Finding 4: Canonical Link
   if (!canonicalUrl) {
     findings.push({
       id: 'f-seo-canonical-missing',
@@ -470,42 +541,51 @@ export async function analyzeStoreUrl(inputUrl: string): Promise<AuditReportData
       issue_name: 'Self-Referential Canonical Tag Not Specified',
       affected_url: target,
       evidence: '<link rel="canonical"> tag absent from page head',
+      root_cause: 'Theme header template lacks a dynamic canonical URL declaration.',
       explanation: 'Canonical tags prevent duplicate content indexing caused by query parameters, session IDs, or tracking campaigns.',
       recommended_solution: `Add <link rel="canonical" href="${target}"> in the <head> section.`,
+      solution_steps: [
+        'Determine canonical root domain format (HTTPS, without tracking parameters).',
+        'Insert the canonical link tag into document <head>.',
+      ],
+      code_snippet: `<link rel="canonical" href="${target}" />`,
+      platform_solutions: {
+        shopify: 'Open `theme.liquid` in Code Editor and ensure `<link rel="canonical" href="{{ canonical_url }}"/>` is placed within `<head>`.',
+        woocommerce: 'Active SEO plugins like Yoast or RankMath output this automatically; verify canonical is enabled in plugin settings.',
+        custom: `Add <link rel="canonical" href="${target}" /> inside your HTML head layout.`,
+      },
       is_measured: true,
     });
   }
 
-  // Findings: Performance
-  if (responseTimeMs > 1000) {
+  // Finding 5: Server TTFB
+  if (responseTimeMs > 800) {
     findings.push({
       id: 'f-perf-ttfb',
       category: 'performance',
-      severity: 'high',
+      severity: responseTimeMs > 1500 ? 'critical' : 'high',
       issue_name: 'Elevated Server Time to First Byte (TTFB)',
       affected_url: target,
       evidence: `Initial HTML response took ${responseTimeMs}ms (recommended: <400ms)`,
+      root_cause: 'Uncached server-side execution, database query latency, or missing Edge CDN caching.',
       explanation: 'Slow initial server response delays all downstream asset downloads, hurting mobile conversions and Core Web Vitals.',
       recommended_solution: 'Implement full-page caching at the CDN/Edge layer (Cloudflare or Fastly) and evaluate database query load.',
+      solution_steps: [
+        'Route DNS through a global CDN (Cloudflare) with Cache Everything rule for HTML.',
+        'Audit slow database queries and disable unused analytics plugins.',
+        'Enable HTTP/2 or HTTP/3 on the host server.',
+      ],
+      code_snippet: `# Nginx FastCGI / Proxy Cache Directive\nproxy_cache my_zone;\nproxy_cache_valid 200 60m;\nadd_header X-Cache-Status $upstream_cache_status;`,
+      platform_solutions: {
+        shopify: 'Audit installed Shopify Apps. Delete apps that inject blocking Liquid scripts into the initial request pipeline.',
+        woocommerce: 'Install WP Rocket, enable Redis/Memcached object caching, and host on dedicated NVMe hosting.',
+        custom: 'Implement edge caching at CDN layer with Cache-Control: public, s-maxage=3600, stale-while-revalidate=60.',
+      },
       is_measured: true,
     });
   }
 
-  if (htmlSizeKb > 350) {
-    findings.push({
-      id: 'f-perf-html-size',
-      category: 'performance',
-      severity: 'medium',
-      issue_name: 'Bulky Initial HTML Payload',
-      affected_url: target,
-      evidence: `Uncompressed HTML document is ${htmlSizeKb} KB`,
-      explanation: 'Large HTML payloads often contain bloat from inline base64 images, large JSON blobs, or heavy inline scripts.',
-      recommended_solution: 'Enable Brotli or Gzip compression, externalize inline JSON payloads, and defer non-critical CSS/JS.',
-      is_measured: true,
-    });
-  }
-
-  // Findings: UX & Conversion
+  // Finding 6: Mobile Viewport
   if (!hasViewport) {
     findings.push({
       id: 'f-ux-viewport-missing',
@@ -514,27 +594,25 @@ export async function analyzeStoreUrl(inputUrl: string): Promise<AuditReportData
       issue_name: 'Mobile Viewport Configuration Missing',
       affected_url: target,
       evidence: '<meta name="viewport"> tag not detected',
+      root_cause: 'Document head lacks standard responsive viewport configuration.',
       explanation: 'Mobile browsers will render desktop scale, resulting in tiny text, horizontal scrolling, and poor mobile shopping experience.',
       recommended_solution: 'Add <meta name="viewport" content="width=device-width, initial-scale=1.0"> in <head>.',
+      solution_steps: [
+        'Open layout head template.',
+        'Paste the standard responsive viewport meta tag.',
+        'Test on mobile screen simulator.',
+      ],
+      code_snippet: `<meta name="viewport" content="width=device-width, initial-scale=1.0">`,
+      platform_solutions: {
+        shopify: 'Open `theme.liquid` in Code Editor and add `<meta name="viewport" content="width=device-width, initial-scale=1.0">` inside `<head>`.',
+        woocommerce: 'Add to `header.php` inside the active theme or child theme <head>.',
+        custom: 'Add <meta name="viewport" content="width=device-width, initial-scale=1.0"> to your HTML entry point.',
+      },
       is_measured: true,
     });
   }
 
-  if (!hasSearch) {
-    findings.push({
-      id: 'f-ux-search-absent',
-      category: 'ux_conversion',
-      severity: 'medium',
-      issue_name: 'No Readily Visible Store Search Input',
-      affected_url: target,
-      evidence: 'No search input or /search action observed in page header markup',
-      explanation: 'Shoppers who use on-site search convert at 1.8x to 2.4x the rate of browse-only visitors.',
-      recommended_solution: 'Implement a prominent search input with predictive autocomplete in the global header.',
-      is_measured: true,
-    });
-  }
-
-  // Findings: Product Optimization
+  // Finding 7: Structured Data Schema
   if (!hasStructuredData) {
     findings.push({
       id: 'f-prod-schema-missing',
@@ -543,41 +621,64 @@ export async function analyzeStoreUrl(inputUrl: string): Promise<AuditReportData
       issue_name: 'Structured Data Schema (JSON-LD) Missing',
       affected_url: target,
       evidence: 'No schema.org structured data scripts discovered',
+      root_cause: 'Store lacks automated JSON-LD structured data generation.',
       explanation: 'Search engines use Product and Merchant schemas to display rich results (star ratings, prices, availability, badges) in Google Shopping.',
       recommended_solution: 'Embed schema.org JSON-LD scripts with Organization, WebSite, and Product entity specifications.',
+      solution_steps: [
+        'Generate structured schema JSON-LD with store name, logo, URL, and search action.',
+        'Embed the schema in a <script type="application/ld+json"> tag in the homepage head.',
+        'Validate markup with Google Search Console Rich Results Test.',
+      ],
+      code_snippet: `<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "OnlineStore",
+  "name": "${normalizedDomain}",
+  "url": "${target}",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": "${target}/search?q={search_term_string}",
+    "query-input": "required name=search_term_string"
+  }
+}
+</script>`,
+      platform_solutions: {
+        shopify: 'Install a dedicated structured data app or paste JSON-LD snippet into `snippets/structured-data.liquid` and include in `theme.liquid`.',
+        woocommerce: 'Enable Schema settings in Yoast SEO or RankMath WooCommerce integration.',
+        custom: 'Embed the JSON-LD snippet above into your document <head>.',
+      },
       is_measured: true,
     });
   }
 
+  // Finding 8: Image Alt Text
   if (imgMatches.length > 0 && missingAltCount > 0) {
     findings.push({
       id: 'f-prod-missing-alt',
       category: 'product_optimization',
       severity: missingAltCount > 5 ? 'high' : 'medium',
-      issue_name: 'Product & Store Images Missing Descriptive Alt Attributes',
+      issue_name: 'Images Missing Descriptive Alt Attributes',
       affected_url: target,
       evidence: `${missingAltCount} out of ${imgMatches.length} <img> tags lack descriptive alt text`,
+      root_cause: 'Images uploaded without descriptive text in media library.',
       explanation: 'Missing alt text penalizes image search rankings on Google Images and creates accessibility barriers.',
       recommended_solution: 'Add descriptive, keyword-rich alt text to every product photo describing the product, color, and angle.',
+      solution_steps: [
+        'Audit media files on the homepage.',
+        'Set alt attributes format: "[Product/Brand Name] - [Variant/View]".',
+        'Avoid generic placeholders like "image1" or empty quotes.',
+      ],
+      code_snippet: `<img src="product.jpg" alt="${normalizedDomain} - Classic Chronograph Watch in Rose Gold" loading="lazy" />`,
+      platform_solutions: {
+        shopify: 'Go to Products > Select Product > Click on Media photo > Click "Add alt text". Save changes.',
+        woocommerce: 'In Media Library or Product Edit page, select image and enter descriptive text in the "Alternative Text" field.',
+        custom: 'Audit <img> tags in templates and supply meaningful alt props.',
+      },
       is_measured: true,
     });
   }
 
-  if (!hasReviews) {
-    findings.push({
-      id: 'f-prod-reviews-absent',
-      category: 'product_optimization',
-      severity: 'medium',
-      issue_name: 'Customer Reviews / Social Proof Widget Not Visible on Homepage',
-      affected_url: target,
-      evidence: 'No verified review widget (Yotpo, Trustpilot, Loox, Judge.me) or star rating elements found',
-      explanation: 'Customer testimonials and review proof on the homepage elevate buyer trust and reduce cart abandonment.',
-      recommended_solution: 'Integrate a verified customer review showcase badge or testimonial carousel on the homepage.',
-      is_measured: true,
-    });
-  }
-
-  // Findings: Trust Signals
+  // Finding 9: HTTPS Security
   if (!isHttps) {
     findings.push({
       id: 'f-trust-no-https',
@@ -586,12 +687,29 @@ export async function analyzeStoreUrl(inputUrl: string): Promise<AuditReportData
       issue_name: 'Unencrypted HTTP Connection (No SSL/TLS)',
       affected_url: target,
       evidence: 'URL loaded over insecure http:// protocol',
+      root_cause: 'SSL certificate is missing, expired, or web server is not forcing HTTPS redirects.',
       explanation: 'Browsers display a prominent "Not Secure" warning in the address bar, causing buyers to immediately abandon checkout.',
       recommended_solution: 'Install an SSL certificate and configure 301 permanent redirects from HTTP to HTTPS across all routes.',
+      solution_steps: [
+        'Provision an SSL certificate via Let\'s Encrypt or your cloud host.',
+        'Configure web server to return 301 redirect for all port 80 requests.',
+        'Verify SSL rating with SSL Labs test.',
+      ],
+      code_snippet: `server {
+  listen 80;
+  server_name ${normalizedDomain} www.${normalizedDomain};
+  return 301 https://$host$request_uri;
+}`,
+      platform_solutions: {
+        shopify: 'Shopify enforces SSL automatically; check domain status in Settings > Domains to verify DNS CNAME propagation.',
+        woocommerce: 'In WordPress Settings > General, update WordPress Address and Site Address to start with https://.',
+        custom: 'Install certbot / Let\'s Encrypt certificate and enable automatic HTTPS redirect on your reverse proxy.',
+      },
       is_measured: true,
     });
   }
 
+  // Finding 10: Legal & Trust Policies
   if (!hasPrivacy || !hasTerms || !hasReturns) {
     const missingPolicies: string[] = [];
     if (!hasPrivacy) missingPolicies.push('Privacy Policy');
@@ -602,11 +720,29 @@ export async function analyzeStoreUrl(inputUrl: string): Promise<AuditReportData
       id: 'f-trust-policies-missing',
       category: 'trust_signals',
       severity: 'medium',
-      issue_name: 'Crucial Store Policy Links Not Discovered in Footer',
+      issue_name: 'Essential Policy Links Missing in Storefront Footer',
       affected_url: target,
       evidence: `Missing observable links for: ${missingPolicies.join(', ')}`,
+      root_cause: 'Footer menu navigation omitted required merchant policy links.',
       explanation: 'Payment gateways (Stripe, PayPal, Google Pay) and ad networks require clear, accessible return, terms, and privacy links.',
       recommended_solution: 'Ensure footer navigation includes dedicated links to Privacy Policy, Terms of Service, and Return & Refund Policy.',
+      solution_steps: [
+        'Draft complete policy pages outlining 30-day return window, shipping times, and privacy rights.',
+        'Add links to your global footer navigation menu.',
+        'Verify links open without 404 errors.',
+      ],
+      code_snippet: `<footer class="site-footer">
+  <div class="legal-links">
+    <a href="/policies/refund-policy">30-Day Return & Refund Policy</a>
+    <a href="/policies/privacy-policy">Privacy Policy</a>
+    <a href="/policies/terms-of-service">Terms of Service</a>
+  </div>
+</footer>`,
+      platform_solutions: {
+        shopify: 'Go to Settings > Policies. Generate or customize policies, then add them to your Footer Menu in Online Store > Navigation.',
+        woocommerce: 'Create policy pages in WordPress Admin > Pages, then add them to your Footer Menu in Appearance > Menus.',
+        custom: 'Add footer navigation links pointing to your respective policy routes.',
+      },
       is_measured: true,
     });
   }

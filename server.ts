@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
+import fs from 'fs';
 import { isServerSupabaseConfigured, supabaseAdmin, verifyUserToken } from './server/supabase.js';
 import { analyzeStoreUrl } from './server/analyzer.js';
 
@@ -59,12 +60,100 @@ async function startServer() {
 
     try {
       const report = await analyzeStoreUrl(url.trim());
+
+      // If Supabase is connected, record audit details and possible solutions to PostgreSQL
+      if (isServerSupabaseConfigured && supabaseAdmin) {
+        try {
+          const { data: orgs } = await supabaseAdmin.from('organizations').select('id').limit(1);
+          const defaultOrgId = orgs && orgs.length > 0 ? orgs[0].id : null;
+
+          if (defaultOrgId) {
+            const { data: auditRow } = await supabaseAdmin
+              .from('audits')
+              .insert({
+                organization_id: defaultOrgId,
+                target_url: report.target_url,
+                normalized_domain: report.normalized_domain,
+                status: 'completed',
+                pages_crawled: 1,
+                pages_limit: 10,
+                overall_health_score: report.overall_score,
+                scoring_version: '1.0.0',
+                crawl_metadata: {
+                  platform: report.detected_platform,
+                  metrics: report.metrics,
+                },
+                completed_at: new Date().toISOString(),
+              })
+              .select()
+              .single();
+
+            if (auditRow) {
+              await supabaseAdmin.from('audit_scores').insert({
+                audit_id: auditRow.id,
+                technical_seo_score: report.category_scores.technical_seo,
+                performance_score: report.category_scores.performance,
+                ux_conversion_score: report.category_scores.ux_conversion,
+                product_optimization_score: report.category_scores.product_optimization,
+                trust_signals_score: report.category_scores.trust_signals,
+                content_quality_score: report.category_scores.content_quality,
+                technical_health_score: report.category_scores.technical_health,
+                score_breakdown: report.category_scores,
+              });
+
+              const findingsRows = report.findings.map((f) => ({
+                audit_id: auditRow.id,
+                category: f.category,
+                severity: f.severity,
+                issue_name: f.issue_name,
+                affected_url: f.affected_url,
+                evidence: f.evidence,
+                root_cause: f.root_cause || null,
+                explanation: f.explanation,
+                recommended_solution: f.recommended_solution,
+                solution_steps: f.solution_steps || [],
+                code_snippet: f.code_snippet || null,
+                platform_solutions: f.platform_solutions || {},
+                is_measured: f.is_measured,
+              }));
+
+              if (findingsRows.length > 0) {
+                await supabaseAdmin.from('audit_findings').insert(findingsRows);
+              }
+            }
+          }
+        } catch (dbErr: any) {
+          console.warn('Could not persist audit record to Supabase:', dbErr.message);
+        }
+      }
+
       res.json({ success: true, report });
     } catch (err: any) {
       console.error('Audit analysis failed for URL:', url, err.message);
       res.status(400).json({
         error: err.message || 'Failed to analyze store URL. Please verify the URL is publicly reachable.',
       });
+    }
+  });
+
+  // GET /api/v1/admin/migrations/:id - Retrieve SQL migration file for Super Admin setup
+  app.get('/api/v1/admin/migrations/:id', async (req, res) => {
+    const { id } = req.params;
+    let fileName = '';
+    if (id === 'schema' || id === '1') {
+      fileName = '20261110000001_initial_schema.sql';
+    } else if (id === 'rls' || id === '2') {
+      fileName = '20261110000002_rls_policies.sql';
+    } else {
+      return res.status(404).json({ error: 'Migration file not found' });
+    }
+
+    try {
+      const filePath = path.join(__dirname, 'supabase', 'migrations', fileName);
+      const sqlContent = await fs.promises.readFile(filePath, 'utf-8');
+      res.json({ fileName, sql: sqlContent });
+    } catch (err: any) {
+      res.status(500).json({ error: `Failed to read migration: ${err.message}` });
     }
   });
 

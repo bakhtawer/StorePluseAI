@@ -115,15 +115,20 @@ function MainApp() {
                 <span className="capitalize text-slate-400 font-medium">{dashboardTab}</span>
               </div>
 
-              <div className="flex items-center gap-4 text-[11px]">
-                <button
-                  onClick={() => setDbModalOpen(true)}
-                  className="flex items-center gap-1.5 hover:text-white transition-colors"
-                >
-                  <Database className={`w-3.5 h-3.5 ${isConfigured ? 'text-emerald-400' : 'text-amber-400'}`} />
-                  <span>{isConfigured ? 'PostgreSQL Active' : 'Dev Gateway Mode'}</span>
-                </button>
-                <span>·</span>
+              <div className="flex items-center gap-3 text-[11px]">
+                {profile?.system_role === 'admin' && (
+                  <>
+                    <button
+                      onClick={() => setDbModalOpen(true)}
+                      className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors border border-slate-700/60"
+                      title="Super Admin Database Settings"
+                    >
+                      <Database className="w-3 h-3 text-blue-400" />
+                      <span>Admin DB</span>
+                    </button>
+                    <span>·</span>
+                  </>
+                )}
                 <span className="text-slate-400">
                   Role: <strong className="text-white capitalize">{profile?.system_role?.replace('_', ' ') || 'Free user'}</strong>
                 </span>

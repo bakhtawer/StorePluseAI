@@ -380,50 +380,10 @@ export const AuditReportView: React.FC<AuditReportViewProps> = ({
           </div>
         </div>
 
-        {/* Findings List */}
-        <div className="space-y-3">
+        {/* Findings List with Interactive Solutions */}
+        <div className="space-y-4">
           {filteredFindings.map((finding) => (
-            <div
-              key={finding.id}
-              className="p-5 rounded-xl bg-slate-900 border border-slate-800/90 space-y-3 print:bg-white print:border-gray-300"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2.5">
-                  <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                      finding.severity === 'critical'
-                        ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30 print:text-red-700'
-                        : finding.severity === 'high'
-                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30 print:text-amber-700'
-                        : 'bg-blue-500/20 text-blue-400 border border-blue-500/30 print:text-blue-700'
-                    }`}
-                  >
-                    {finding.severity}
-                  </span>
-                  <span className="text-[11px] font-mono text-slate-500 uppercase print:text-gray-500">
-                    {finding.category.replace('_', ' ')}
-                  </span>
-                </div>
-                <span className="text-[10px] font-mono text-emerald-400 print:text-gray-600">Measured Evidence</span>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-bold text-white print:text-black">{finding.issue_name}</h3>
-                <div className="mt-1 p-2 rounded bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-400 break-all print:bg-gray-100 print:text-gray-900 print:border-gray-300">
-                  <strong className="text-slate-300 print:text-black">Observed Evidence:</strong> {finding.evidence}
-                </div>
-              </div>
-
-              <div className="text-xs text-slate-300 space-y-1.5 print:text-gray-800">
-                <div>
-                  <strong className="text-slate-400 font-semibold print:text-black">Impact:</strong> {finding.explanation}
-                </div>
-                <div>
-                  <strong className="text-emerald-400 font-semibold print:text-emerald-800">Recommended Solution:</strong>{' '}
-                  {finding.recommended_solution}
-                </div>
-              </div>
-            </div>
+            <FindingCard key={finding.id} finding={finding} detectedPlatform={report.detected_platform.platform} />
           ))}
         </div>
       </div>
@@ -466,6 +426,217 @@ export const AuditReportView: React.FC<AuditReportViewProps> = ({
               </ul>
             </div>
           ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+interface FindingCardProps {
+  finding: any;
+  detectedPlatform: string;
+}
+
+const FindingCard: React.FC<FindingCardProps> = ({ finding, detectedPlatform }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [activePlatformTab, setActivePlatformTab] = useState<'shopify' | 'woocommerce' | 'custom'>(
+    detectedPlatform === 'shopify' ? 'shopify' : detectedPlatform === 'woocommerce' ? 'woocommerce' : 'custom'
+  );
+  const [codeCopied, setCodeCopied] = useState(false);
+  const [actionStatus, setActionStatus] = useState<'none' | 'in_progress' | 'resolved'>('none');
+
+  const handleCopyCode = () => {
+    if (!finding.code_snippet) return;
+    navigator.clipboard.writeText(finding.code_snippet);
+    setCodeCopied(true);
+    setTimeout(() => setCodeCopied(false), 2000);
+  };
+
+  const platformText =
+    activePlatformTab === 'shopify'
+      ? finding.platform_solutions?.shopify || 'Log in to Shopify Admin, open Online Store > Preferences, and configure the relevant setting.'
+      : activePlatformTab === 'woocommerce'
+      ? finding.platform_solutions?.woocommerce || 'Log in to WordPress Admin, open WooCommerce Settings or Yoast/RankMath SEO plugin options.'
+      : finding.platform_solutions?.custom || finding.recommended_solution;
+
+  return (
+    <div className="rounded-xl bg-slate-900 border border-slate-800/90 overflow-hidden transition-all print:bg-white print:border-gray-300">
+      {/* Finding Summary Bar */}
+      <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1.5 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                finding.severity === 'critical'
+                  ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30 print:text-red-700'
+                  : finding.severity === 'high'
+                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30 print:text-amber-700'
+                  : 'bg-blue-500/20 text-blue-400 border border-blue-500/30 print:text-blue-700'
+              }`}
+            >
+              {finding.severity}
+            </span>
+            <span className="text-[11px] font-mono text-slate-500 uppercase print:text-gray-500">
+              {finding.category.replace('_', ' ')}
+            </span>
+            {actionStatus === 'in_progress' && (
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                In Progress
+              </span>
+            )}
+            {actionStatus === 'resolved' && (
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                Resolved
+              </span>
+            )}
+          </div>
+
+          <h3 className="text-sm font-bold text-white print:text-black">{finding.issue_name}</h3>
+          <p className="text-xs text-slate-400 print:text-gray-700">{finding.explanation}</p>
+        </div>
+
+        {/* Expand Action Button */}
+        <div className="flex items-center gap-2 shrink-0 print:hidden">
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition-colors"
+          >
+            <span>{isExpanded ? 'Hide Solutions' : 'View Fix Solutions'}</span>
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+          </button>
+        </div>
+      </div>
+
+      {/* Observed Evidence Mini-Strip */}
+      <div className="px-5 py-2.5 bg-slate-950/70 border-t border-b border-slate-800/80 text-[11px] font-mono text-slate-400 print:bg-gray-100 print:text-gray-900 print:border-gray-300">
+        <span className="text-slate-300 font-bold print:text-black">Observed Evidence:</span> {finding.evidence}
+      </div>
+
+      {/* Expanded Solution & Remediation Details (Always visible in print) */}
+      <div className={`p-5 space-y-4 bg-slate-900/60 ${isExpanded ? 'block' : 'hidden print:block'}`}>
+        {/* Root Cause Analysis */}
+        {finding.root_cause && (
+          <div className="p-3 rounded-lg bg-blue-950/20 border border-blue-900/30 text-xs text-slate-300 print:bg-gray-50 print:text-black">
+            <strong className="text-blue-400 font-semibold print:text-blue-800">Root Cause:</strong> {finding.root_cause}
+          </div>
+        )}
+
+        {/* Platform Guidance Selector Tabs */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-slate-300 uppercase tracking-wider print:text-black">
+              Platform-Specific Solution Guide
+            </span>
+            <div className="flex items-center gap-1 p-0.5 rounded-lg bg-slate-950 border border-slate-800 text-[11px] print:hidden">
+              <button
+                type="button"
+                onClick={() => setActivePlatformTab('shopify')}
+                className={`px-2.5 py-1 rounded font-medium transition-colors ${
+                  activePlatformTab === 'shopify' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Shopify
+              </button>
+              <button
+                type="button"
+                onClick={() => setActivePlatformTab('woocommerce')}
+                className={`px-2.5 py-1 rounded font-medium transition-colors ${
+                  activePlatformTab === 'woocommerce' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                WooCommerce
+              </button>
+              <button
+                type="button"
+                onClick={() => setActivePlatformTab('custom')}
+                className={`px-2.5 py-1 rounded font-medium transition-colors ${
+                  activePlatformTab === 'custom' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Custom / Code
+              </button>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-lg bg-slate-950/80 border border-slate-800 text-xs text-slate-200 leading-relaxed print:bg-gray-50 print:text-black print:border-gray-300">
+            <div className="font-semibold text-blue-400 mb-1 capitalize print:text-blue-800">
+              {activePlatformTab} Implementation Instructions:
+            </div>
+            {platformText}
+          </div>
+        </div>
+
+        {/* Step-by-Step Resolution Steps */}
+        {finding.solution_steps && finding.solution_steps.length > 0 && (
+          <div>
+            <div className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 print:text-black">
+              Step-by-Step Resolution Checklist
+            </div>
+            <div className="space-y-1.5">
+              {finding.solution_steps.map((step: string, sidx: number) => (
+                <div key={sidx} className="flex items-start gap-2 text-xs text-slate-300 print:text-gray-800">
+                  <div className="w-4 h-4 rounded bg-slate-800 text-slate-300 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 print:bg-gray-200 print:text-black">
+                    {sidx + 1}
+                  </div>
+                  <span>{step}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Ready-to-Use Code Snippet */}
+        {finding.code_snippet && (
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider print:text-black">
+                Ready-to-Use Code / Template Fix
+              </span>
+              <button
+                type="button"
+                onClick={handleCopyCode}
+                className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] border border-slate-700 transition-colors print:hidden"
+              >
+                {codeCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                <span>{codeCopied ? 'Copied' : 'Copy Code'}</span>
+              </button>
+            </div>
+            <pre className="p-3 rounded-lg bg-slate-950 border border-slate-800 font-mono text-[11px] text-slate-300 overflow-x-auto print:bg-gray-100 print:text-black print:border-gray-300">
+              {finding.code_snippet}
+            </pre>
+          </div>
+        )}
+
+        {/* Remediation Action Controls */}
+        <div className="pt-2 flex flex-wrap items-center justify-between gap-3 border-t border-slate-800/80 print:hidden text-xs">
+          <div className="text-[11px] text-slate-400">
+            Track this remediation in your store action checklist:
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setActionStatus('in_progress')}
+              className={`px-3 py-1 rounded text-xs font-medium border transition-colors ${
+                actionStatus === 'in_progress'
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+              }`}
+            >
+              Mark In-Progress
+            </button>
+            <button
+              type="button"
+              onClick={() => setActionStatus('resolved')}
+              className={`px-3 py-1 rounded text-xs font-medium border transition-colors ${
+                actionStatus === 'resolved'
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+              }`}
+            >
+              Mark Resolved
+            </button>
+          </div>
         </div>
       </div>
     </div>
