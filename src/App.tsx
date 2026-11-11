@@ -44,7 +44,7 @@ function MainApp() {
   const isBrowsingPublic = currentView !== 'dashboard' || !user;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-600 selection:text-white">
       {/* Public / Global Top Navigation */}
       <Navbar
         onOpenAuth={openAuth}
@@ -120,10 +120,10 @@ function MainApp() {
                   <>
                     <button
                       onClick={() => setDbModalOpen(true)}
-                      className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors border border-slate-700/60"
+                      className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors border border-slate-700/60 cursor-pointer"
                       title="Super Admin Database Settings"
                     >
-                      <Database className="w-3 h-3 text-blue-400" />
+                      <Database className="w-3 h-3 text-indigo-400" />
                       <span>Admin DB</span>
                     </button>
                     <span>·</span>
@@ -176,18 +176,20 @@ function MainApp() {
           <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div>&copy; {new Date().getFullYear()} StorePulse AI. All rights reserved.</div>
             <div className="flex items-center gap-6">
-              <button onClick={() => setCurrentView('landing')} className="hover:text-slate-300">
-                Platform
+              <button onClick={() => setCurrentView('landing')} className="hover:text-indigo-400 transition-colors cursor-pointer">
+                Store Intelligence
               </button>
-              <button onClick={() => setCurrentView('how-it-works')} className="hover:text-slate-300">
-                Architecture
+              <button onClick={() => setCurrentView('how-it-works')} className="hover:text-indigo-400 transition-colors cursor-pointer">
+                Capabilities
               </button>
-              <button onClick={() => setCurrentView('pricing')} className="hover:text-slate-300">
-                Plans
+              <button onClick={() => setCurrentView('pricing')} className="hover:text-indigo-400 transition-colors cursor-pointer">
+                Plans & Pricing
               </button>
-              <button onClick={() => setDbModalOpen(true)} className="hover:text-slate-300">
-                Database Guide
-              </button>
+              {profile?.system_role === 'admin' && (
+                <button onClick={() => setDbModalOpen(true)} className="text-indigo-400/80 hover:text-indigo-400 transition-colors font-medium cursor-pointer">
+                  Admin DB Config
+                </button>
+              )}
             </div>
           </div>
         </footer>

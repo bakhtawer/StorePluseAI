@@ -23,9 +23,9 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Zone 1: Brand wordmark (single text element) */}
         <button
           onClick={() => onNavigate('landing')}
-          className="text-lg font-bold tracking-tight text-white hover:text-blue-400 transition-colors whitespace-nowrap shrink-0 flex items-center gap-2 text-left"
+          className="text-lg font-bold tracking-tight text-white hover:text-indigo-400 transition-colors whitespace-nowrap shrink-0 flex items-center gap-2.5 text-left cursor-pointer"
         >
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-black text-sm shadow-sm shadow-blue-500/20">
+          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-black text-sm shadow-sm shadow-indigo-500/25">
             SP
           </div>
           <span>StorePulse AI</span>
@@ -35,24 +35,24 @@ export const Navbar: React.FC<NavbarProps> = ({
         <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-slate-300">
           <button
             onClick={() => onNavigate('landing')}
-            className={`transition-colors whitespace-nowrap shrink-0 hover:text-white ${
-              currentView === 'landing' ? 'text-white' : 'text-slate-400'
+            className={`transition-colors whitespace-nowrap shrink-0 hover:text-white cursor-pointer ${
+              currentView === 'landing' ? 'text-indigo-400 font-semibold' : 'text-slate-400'
             }`}
           >
             Overview
           </button>
           <button
             onClick={() => onNavigate('how-it-works')}
-            className={`transition-colors whitespace-nowrap shrink-0 hover:text-white ${
-              currentView === 'how-it-works' ? 'text-white' : 'text-slate-400'
+            className={`transition-colors whitespace-nowrap shrink-0 hover:text-white cursor-pointer ${
+              currentView === 'how-it-works' ? 'text-indigo-400 font-semibold' : 'text-slate-400'
             }`}
           >
             Capabilities
           </button>
           <button
             onClick={() => onNavigate('pricing')}
-            className={`transition-colors whitespace-nowrap shrink-0 hover:text-white ${
-              currentView === 'pricing' ? 'text-white' : 'text-slate-400'
+            className={`transition-colors whitespace-nowrap shrink-0 hover:text-white cursor-pointer ${
+              currentView === 'pricing' ? 'text-indigo-400 font-semibold' : 'text-slate-400'
             }`}
           >
             Pricing & Plans
@@ -60,8 +60,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           {user && (
             <button
               onClick={() => onNavigate('dashboard')}
-              className={`transition-colors whitespace-nowrap shrink-0 hover:text-white ${
-                currentView === 'dashboard' ? 'text-blue-400 font-semibold' : 'text-slate-400'
+              className={`transition-colors whitespace-nowrap shrink-0 hover:text-white cursor-pointer ${
+                currentView === 'dashboard' ? 'text-indigo-400 font-semibold' : 'text-slate-400'
               }`}
             >
               Dashboard
@@ -75,9 +75,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               onClick={onOpenDatabaseSetup}
               title="Super Admin Database Configuration"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md border border-slate-700 bg-slate-900/80 text-slate-300 hover:text-white hover:border-slate-600 transition-colors whitespace-nowrap shrink-0"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md border border-slate-700 bg-slate-900/80 text-slate-300 hover:text-white hover:border-slate-600 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
-              <Database className="w-3.5 h-3.5 text-blue-400" />
+              <Database className="w-3.5 h-3.5 text-indigo-400" />
               <span className="hidden sm:inline">Admin Config</span>
             </button>
           )}
@@ -85,22 +85,22 @@ export const Navbar: React.FC<NavbarProps> = ({
           {user ? (
             <button
               onClick={() => onNavigate('dashboard')}
-              className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-500 transition-colors whitespace-nowrap shrink-0 shadow-sm shadow-blue-600/30"
+              className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-500 transition-colors whitespace-nowrap shrink-0 shadow-sm shadow-indigo-600/25 cursor-pointer"
             >
               <User className="w-3.5 h-3.5" />
               <span>{profile?.full_name || 'My Dashboard'}</span>
             </button>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <button
                 onClick={() => onOpenAuth('login')}
-                className="px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white transition-colors whitespace-nowrap shrink-0"
+                className="px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
                 Sign In
               </button>
               <button
                 onClick={() => onOpenAuth('signup')}
-                className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-500 transition-colors whitespace-nowrap shrink-0 shadow-sm shadow-blue-600/30 flex items-center gap-1.5"
+                className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-500 transition-all whitespace-nowrap shrink-0 shadow-md shadow-indigo-600/30 flex items-center gap-1.5 cursor-pointer"
               >
                 <span>Get Started</span>
               </button>
