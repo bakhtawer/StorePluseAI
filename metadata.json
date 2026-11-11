@@ -1,0 +1,8 @@
+{
+  "name": "StorePulse AI",
+  "description": "AI-powered e-commerce growth and store intelligence platform. Analyze technical SEO, performance, UX, product pages, trust signals, and connected store metrics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
