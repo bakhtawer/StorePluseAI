@@ -15,7 +15,7 @@ import {
   Plus,
   TrendingUp,
 } from 'lucide-react';
-import { UrlAnalyzerBar, generateClientFallbackReport } from '../audit/UrlAnalyzerBar.tsx';
+import { UrlAnalyzerBar, generateClientDynamicReport } from '../audit/UrlAnalyzerBar.tsx';
 import { AuditReportView } from '../audit/AuditReportView.tsx';
 import { AuditReportData } from '../../../server/analyzer.ts';
 import { useAuth } from '../../contexts/AuthContext.tsx';
@@ -144,8 +144,8 @@ export const AuditsPlaceholderView: React.FC<{
 
               <div className="flex items-center gap-2.5 self-end sm:self-auto">
                 <button
-                  onClick={() => {
-                    const simulatedReport = generateClientFallbackReport(`https://${item.domain}`);
+                  onClick={async () => {
+                    const simulatedReport = await generateClientDynamicReport(`https://${item.domain}`);
                     setActiveReport(simulatedReport);
                   }}
                   className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 transition-colors cursor-pointer"
