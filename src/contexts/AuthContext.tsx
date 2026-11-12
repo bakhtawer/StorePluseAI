@@ -1,12 +1,16 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase.ts';
-import { Profile, Organization, OrganizationMember, MemberRole } from '../types/database.ts';
+import { Profile, Organization, OrganizationMember, MemberRole, Plan } from '../types/database.ts';
+import { ALL_PLANS, getPlanById } from '../lib/plans.ts';
 
 interface AuthContextType {
   user: any | null;
   profile: Profile | null;
   currentOrg: Organization | null;
   memberships: OrganizationMember[];
+  activePlan: Plan;
+  activePlanId: string;
+  changePlan: (planId: string) => Promise<{ error: string | null }>;
   isLoading: boolean;
   isConfigured: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
@@ -24,12 +28,14 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const DEV_USER_KEY = 'storepulse_dev_user';
 const DEV_PROFILE_KEY = 'storepulse_dev_profile';
 const DEV_ORGS_KEY = 'storepulse_dev_orgs';
+const DEV_PLAN_KEY = 'storepulse_active_plan';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<any | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [currentOrg, setCurrentOrg] = useState<Organization | null>(null);
   const [memberships, setMemberships] = useState<OrganizationMember[]>([]);
+  const [activePlanId, setActivePlanId] = useState<string>('free');
   const [isLoading, setIsLoading] = useState(true);
 
   // Initialize dev mode defaults if not in real Supabase mode
@@ -38,6 +44,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const savedUser = localStorage.getItem(DEV_USER_KEY);
       const savedProfile = localStorage.getItem(DEV_PROFILE_KEY);
       const savedOrgs = localStorage.getItem(DEV_ORGS_KEY);
+      const savedPlan = localStorage.getItem(DEV_PLAN_KEY);
+
+      if (savedPlan) {
+        setActivePlanId(savedPlan);
+      }
 
       if (savedUser && savedProfile && savedOrgs) {
         const u = JSON.parse(savedUser);
@@ -393,6 +404,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const changePlan = async (newPlanId: string) => {
+    try {
+      setActivePlanId(newPlanId);
+      localStorage.setItem(DEV_PLAN_KEY, newPlanId);
+
+      // If user profile is not an admin, update role to match subscription
+      if (profile && profile.system_role !== 'admin') {
+        const nextRole =
+          newPlanId === 'free'
+            ? 'free_user'
+            : newPlanId === 'agency'
+            ? 'agency_user'
+            : 'paid_user';
+        await updateProfile({ system_role: nextRole });
+      }
+
+      return { error: null };
+    } catch (e: any) {
+      return { error: e.message || 'Failed to update plan' };
+    }
+  };
+
+  const activePlan = getPlanById(activePlanId);
+
   return (
     <AuthContext.Provider
       value={{
@@ -400,6 +435,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         profile,
         currentOrg,
         memberships,
+        activePlan,
+        activePlanId,
+        changePlan,
         isLoading,
         isConfigured: isSupabaseConfigured,
         signIn,

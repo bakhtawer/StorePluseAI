@@ -9,7 +9,7 @@ interface UrlAnalyzerBarProps {
 }
 
 // Fallback client-side generator in case Vercel hosting returns non-JSON or static fallback
-function generateClientFallbackReport(targetUrl: string): AuditReportData {
+export function generateClientFallbackReport(targetUrl: string): AuditReportData {
   let url = targetUrl.trim();
   if (!url.startsWith('http://') && !url.startsWith('https://')) {
     url = 'https://' + url;

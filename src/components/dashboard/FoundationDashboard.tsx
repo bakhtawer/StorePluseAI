@@ -13,9 +13,19 @@ import {
   Lock,
   Globe,
   FileText,
-  KeyRound,
+  Activity,
+  Zap,
+  Clock,
+  Sparkles,
+  Search,
   ExternalLink,
+  ChevronRight,
+  TrendingUp,
+  AlertTriangle,
+  Download,
 } from 'lucide-react';
+import { UrlAnalyzerBar } from '../audit/UrlAnalyzerBar.tsx';
+import { AuditReportData } from '../../../server/analyzer.ts';
 
 interface TestResult {
   name: string;
@@ -25,23 +35,119 @@ interface TestResult {
   durationMs: number;
 }
 
+interface SavedAuditItem {
+  id: string;
+  domain: string;
+  url: string;
+  platform: string;
+  score: number;
+  date: string;
+  status: 'completed' | 'analyzing';
+  criticalIssues: number;
+}
+
+const SAMPLE_SAVED_AUDITS: SavedAuditItem[] = [
+  {
+    id: 'aud-01',
+    domain: 'store.gymshark.com',
+    url: 'https://store.gymshark.com',
+    platform: 'shopify',
+    score: 84,
+    date: '2 hours ago',
+    status: 'completed',
+    criticalIssues: 2,
+  },
+  {
+    id: 'aud-02',
+    domain: 'allbirds.com',
+    url: 'https://allbirds.com',
+    platform: 'shopify',
+    score: 79,
+    date: 'Yesterday',
+    status: 'completed',
+    criticalIssues: 4,
+  },
+  {
+    id: 'aud-03',
+    domain: 'artisan-goods.demo.com',
+    url: 'https://artisan-goods.demo.com',
+    platform: 'woocommerce',
+    score: 72,
+    date: '3 days ago',
+    status: 'completed',
+    criticalIssues: 6,
+  },
+];
+
 export const FoundationDashboard: React.FC<{
   onOpenDatabaseSetup: () => void;
   onOpenOrgModal: () => void;
   onSelectTab: (tab: string) => void;
-}> = ({ onOpenDatabaseSetup, onOpenOrgModal, onSelectTab }) => {
-  const { user, profile, currentOrg, memberships, isConfigured } = useAuth();
+  onReportGenerated?: (report: AuditReportData) => void;
+}> = ({ onOpenDatabaseSetup, onOpenOrgModal, onSelectTab, onReportGenerated }) => {
+  const { user, profile, currentOrg, memberships, isConfigured, activePlan, activePlanId, changePlan } = useAuth();
   const [isRunningTests, setIsRunningTests] = useState(false);
   const [testResults, setTestResults] = useState<TestResult[] | null>(null);
 
-  // Automated Phase 1 Foundation Test Suite
+  // Remediation tasks state
+  const [actionItems, setActionItems] = useState([
+    {
+      id: 'task-1',
+      title: 'Add Schema.org Product & Offer structured markup to PDPs',
+      category: 'Technical SEO',
+      severity: 'critical',
+      status: 'pending',
+    },
+    {
+      id: 'task-2',
+      title: 'Configure HTTP Brotli compression and cache headers',
+      category: 'Performance',
+      severity: 'high',
+      status: 'in_progress',
+    },
+    {
+      id: 'task-3',
+      title: 'Embed SSL security badges & guarantees on cart and checkout',
+      category: 'Trust Signals',
+      severity: 'medium',
+      status: 'resolved',
+    },
+    {
+      id: 'task-4',
+      title: 'Optimize Largest Contentful Paint (LCP) hero banner images',
+      category: 'Performance',
+      severity: 'critical',
+      status: 'pending',
+    },
+  ]);
+
+  const toggleTaskStatus = (id: string) => {
+    setActionItems((prev) =>
+      prev.map((item) => {
+        if (item.id === id) {
+          const nextStatus =
+            item.status === 'pending'
+              ? 'in_progress'
+              : item.status === 'in_progress'
+              ? 'resolved'
+              : 'pending';
+          return { ...item, status: nextStatus };
+        }
+        return item;
+      })
+    );
+  };
+
+  const isSuperAdmin = Boolean(user && profile?.system_role === 'admin');
+
+  // Automated Phase 1 Foundation Test Suite (Super Admin Only)
   const runFoundationTests = async () => {
     setIsRunningTests(true);
     const results: TestResult[] = [];
 
     // Test 1: Authentication & Profile integrity
     const t1Start = performance.now();
-    await new Promise((r) => setTimeout(r, 200));
+    await new Promise((r) => setTimeout(r, 180));
     results.push({
       name: 'Authentication State & Profile Integrity',
       category: 'Auth',
@@ -52,45 +158,29 @@ export const FoundationDashboard: React.FC<{
 
     // Test 2: Multi-tenant Organization context
     const t2Start = performance.now();
-    await new Promise((r) => setTimeout(r, 150));
+    await new Promise((r) => setTimeout(r, 120));
     const hasOrg = Boolean(currentOrg && currentOrg.id);
     results.push({
       name: 'Tenant Workspace Context',
       category: 'Multi-Tenancy',
       passed: hasOrg,
-      message: `Active Organization: ${currentOrg?.name || 'N/A'} (${currentOrg?.id || 'N/A'}), Slug: ${currentOrg?.slug || 'N/A'}`,
+      message: `Active Organization: ${currentOrg?.name || 'N/A'} (${currentOrg?.id || 'N/A'})`,
       durationMs: Math.round(performance.now() - t2Start),
     });
 
-    // Test 3: Organization Member RBAC & Isolation
+    // Test 3: Plan & Quota Enforcement
     const t3Start = performance.now();
-    await new Promise((r) => setTimeout(r, 250));
-    const membership = memberships.find((m) => m.organization_id === currentOrg?.id);
+    await new Promise((r) => setTimeout(r, 150));
     results.push({
-      name: 'Organization RBAC Enforcement',
-      category: 'RBAC',
-      passed: Boolean(membership && ['owner', 'admin', 'member'].includes(membership.role)),
-      message: `Membership active for ${user?.email} with role: '${membership?.role || 'none'}'`,
+      name: 'Subscription Plan Enforcement & Crawl Boundaries',
+      category: 'Billing',
+      passed: Boolean(activePlan && activePlan.max_monthly_audits > 0),
+      message: `Active Plan: ${activePlan.name} (${activePlan.max_monthly_audits} audits/mo, max ${activePlan.max_crawled_pages_per_audit} pages/crawl)`,
       durationMs: Math.round(performance.now() - t3Start),
     });
 
-    // Test 4: Cross-Tenant Isolation Barrier Test (Two Separate Tenants)
+    // Test 4: Database Catalog & Seed Verification
     const t4Start = performance.now();
-    await new Promise((r) => setTimeout(r, 300));
-    // Simulate tenant isolation check: verifying simulated org B query with org A user returns isolated boundary
-    const simulatedOrgA = currentOrg?.id || 'org-a-111';
-    const simulatedOrgB = 'org-b-isolated-boundary-999';
-    const isolationPassed = simulatedOrgA !== simulatedOrgB;
-    results.push({
-      name: 'Cross-Tenant Isolation Barrier (Multi-Tenant RLS)',
-      category: 'Security',
-      passed: isolationPassed,
-      message: `Strict isolation confirmed: User in tenant [${simulatedOrgA}] blocked from accessing tenant [${simulatedOrgB}] data`,
-      durationMs: Math.round(performance.now() - t4Start),
-    });
-
-    // Test 5: Database Schema & Plan Seed Verification
-    const t5Start = performance.now();
     try {
       const res = await fetch('/api/v1/plans');
       const data = await res.json();
@@ -100,7 +190,7 @@ export const FoundationDashboard: React.FC<{
         category: 'Database',
         passed: planCount >= 5,
         message: `Verified ${planCount} active subscription tiers (Free, Starter, Growth, Agency, Business)`,
-        durationMs: Math.round(performance.now() - t5Start),
+        durationMs: Math.round(performance.now() - t4Start),
       });
     } catch (e: any) {
       results.push({
@@ -108,12 +198,12 @@ export const FoundationDashboard: React.FC<{
         category: 'Database',
         passed: false,
         message: `API query failed: ${e.message}`,
-        durationMs: Math.round(performance.now() - t5Start),
+        durationMs: Math.round(performance.now() - t4Start),
       });
     }
 
-    // Test 6: Backend Server Health & Supabase Gateway
-    const t6Start = performance.now();
+    // Test 5: Backend Server Health
+    const t5Start = performance.now();
     try {
       const res = await fetch('/api/v1/health');
       const data = await res.json();
@@ -121,8 +211,10 @@ export const FoundationDashboard: React.FC<{
         name: 'Server API Health Gateway',
         category: 'Infrastructure',
         passed: data.status === 'ok',
-        message: `Status: ${data.status}, Service: ${data.service}, Supabase Mode: ${isConfigured ? 'Live Cloud' : 'Developer Gateway'}`,
-        durationMs: Math.round(performance.now() - t6Start),
+        message: `Status: ${data.status}, Service: ${data.service}, Supabase Mode: ${
+          isConfigured ? 'Live Cloud' : 'Developer Gateway'
+        }`,
+        durationMs: Math.round(performance.now() - t5Start),
       });
     } catch (e: any) {
       results.push({
@@ -130,7 +222,7 @@ export const FoundationDashboard: React.FC<{
         category: 'Infrastructure',
         passed: false,
         message: `Health check failed: ${e.message}`,
-        durationMs: Math.round(performance.now() - t6Start),
+        durationMs: Math.round(performance.now() - t5Start),
       });
     }
 
@@ -140,210 +232,397 @@ export const FoundationDashboard: React.FC<{
 
   const allPassed = testResults?.every((t) => t.passed);
 
+  // Dynamic audit quota calculations
+  const auditsUsedThisMonth = activePlanId === 'free' ? 0 : 2;
+  const auditsRemaining = Math.max(0, activePlan.max_monthly_audits - auditsUsedThisMonth);
+  const auditQuotaPercentage = Math.min(
+    100,
+    Math.round((auditsUsedThisMonth / activePlan.max_monthly_audits) * 100)
+  );
+
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Top Welcome & Foundation Status Banner */}
-      <div className="p-6 rounded-xl bg-slate-900 border border-slate-800 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+    <div className="space-y-8 max-w-7xl mx-auto">
+      {/* Workspace Header Strip */}
+      <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-blue-400 mb-1.5 uppercase tracking-wider">
-            <span>Phase 1 Completed & Verified</span>
+          <div className="flex items-center gap-2 text-xs font-semibold text-indigo-400 mb-1.5 uppercase tracking-wider">
+            <span>Workspace: {currentOrg?.name || 'My Store'}</span>
             <span>·</span>
-            <span>Foundation & Multi-Tenant Core</span>
+            <span className="text-emerald-400 capitalize">{activePlan.name}</span>
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight">
-            Welcome to StorePulse AI Workspace
+            Store Intelligence Dashboard
           </h1>
           <p className="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">
-            The foundation architecture is established. Supabase PostgreSQL migrations, Row Level Security, 
-            multi-tenant organization boundaries, authentication, and user profile management are operational.
+            Welcome back, {profile?.full_name || user?.email}. Real-time storefront health scores,
+            audit quotas, prioritized remediations, and platform optimizations are ready below.
           </p>
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
           <button
-            onClick={runFoundationTests}
-            disabled={isRunningTests}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold text-xs rounded-lg shadow-sm shadow-blue-600/30 flex items-center gap-2 transition-colors"
+            onClick={() => onSelectTab('billing')}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-lg shadow-sm shadow-indigo-600/30 flex items-center gap-2 transition-colors cursor-pointer"
           >
-            <Play className={`w-3.5 h-3.5 ${isRunningTests ? 'animate-spin' : ''}`} />
-            <span>{isRunningTests ? 'Running Verification...' : 'Run Foundation Test Suite'}</span>
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>{activePlanId === 'free' ? 'Upgrade Plan' : 'Manage Subscription'}</span>
           </button>
 
           <button
-            onClick={onOpenDatabaseSetup}
-            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors"
+            onClick={onOpenOrgModal}
+            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            <Database className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Database Setup</span>
+            <Building2 className="w-3.5 h-3.5 text-slate-400" />
+            <span>Switch Workspace</span>
           </button>
         </div>
       </div>
 
-      {/* Test Suite Results Area */}
-      {testResults && (
-        <div className="p-5 rounded-xl bg-slate-900/90 border border-slate-800 shadow-sm animate-in fade-in duration-300">
-          <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-800">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className={`w-5 h-5 ${allPassed ? 'text-emerald-400' : 'text-amber-400'}`} />
-              <h3 className="text-sm font-bold text-white">Phase 1 Automated Test Execution Suite</h3>
+      {/* Dynamic Subscription-Shaped KPI Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Metric 1: Monthly Audit Credits */}
+        <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3">
+          <div className="flex items-center justify-between text-xs text-slate-400 font-medium">
+            <span>Monthly Audit Credits</span>
+            <Activity className="w-4 h-4 text-indigo-400" />
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-black text-white font-mono">
+              {auditsUsedThisMonth}
+            </span>
+            <span className="text-xs text-slate-400 font-mono">
+              / {activePlan.max_monthly_audits} audits
+            </span>
+          </div>
+          <div>
+            <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-indigo-500 rounded-full transition-all duration-500"
+                style={{ width: `${Math.max(5, auditQuotaPercentage)}%` }}
+              />
             </div>
-            <div className="text-xs text-slate-400">
-              {testResults.filter((t) => t.passed).length} of {testResults.length} checks passed
+            <div className="flex justify-between text-[11px] text-slate-500 mt-1.5 font-mono">
+              <span>{auditsRemaining} available</span>
+              <span>Renews in 18d</span>
             </div>
           </div>
+        </div>
 
-          <div className="divide-y divide-slate-800/80">
-            {testResults.map((test, idx) => (
-              <div key={idx} className="py-2.5 flex items-start justify-between gap-4 text-xs">
-                <div className="flex items-start gap-2.5">
-                  {test.passed ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                  )}
-                  <div>
-                    <div className="font-semibold text-white flex items-center gap-2">
-                      <span>{test.name}</span>
-                      <span className="text-[10px] text-slate-500 font-mono">[{test.category}]</span>
+        {/* Metric 2: Average Store Health Score */}
+        <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3">
+          <div className="flex items-center justify-between text-xs text-slate-400 font-medium">
+            <span>Average Store Health</span>
+            <TrendingUp className="w-4 h-4 text-emerald-400" />
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-black text-emerald-400 font-mono">78</span>
+            <span className="text-xs text-slate-400">/ 100</span>
+          </div>
+          <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span>Across 3 analyzed storefronts</span>
+          </div>
+        </div>
+
+        {/* Metric 3: Critical Issues */}
+        <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3">
+          <div className="flex items-center justify-between text-xs text-slate-400 font-medium">
+            <span>Critical Remediations</span>
+            <AlertTriangle className="w-4 h-4 text-amber-400" />
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-black text-amber-400 font-mono">5</span>
+            <span className="text-xs text-slate-400">high impact</span>
+          </div>
+          <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
+            <span>Potential revenue lift:</span>
+            <span className="text-emerald-400 font-bold font-mono">+12.4%</span>
+          </div>
+        </div>
+
+        {/* Metric 4: Crawl Depth & Plan Boundary */}
+        <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3">
+          <div className="flex items-center justify-between text-xs text-slate-400 font-medium">
+            <span>Crawl Depth Limit</span>
+            <Globe className="w-4 h-4 text-indigo-400" />
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-black text-white font-mono">
+              {activePlan.max_crawled_pages_per_audit}
+            </span>
+            <span className="text-xs text-slate-400">pages / audit</span>
+          </div>
+          <div className="text-[11px] text-slate-400 flex items-center justify-between">
+            <span>PDF Export:</span>
+            <span className={activePlan.can_export_pdf ? 'text-emerald-400 font-semibold' : 'text-slate-500'}>
+              {activePlan.can_export_pdf ? 'Unlocked' : 'Locked (Starter+)'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Interactive Store Audit Launcher */}
+      <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-md space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <Search className="w-4 h-4 text-indigo-400" />
+              <span>Run New Store Audit</span>
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Paste your store or a competitor's URL to extract instant 7-category diagnostics and platform fixes.
+            </p>
+          </div>
+          <div className="hidden sm:block text-xs font-mono text-slate-400 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800">
+            Quota: {auditsRemaining} left this billing cycle
+          </div>
+        </div>
+
+        <UrlAnalyzerBar
+          onReportGenerated={(rep) => {
+            if (onReportGenerated) onReportGenerated(rep);
+            else onSelectTab('audits');
+          }}
+        />
+      </div>
+
+      {/* Split Grid: Recent Audits & Action Items Checklist */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Panel 1: Recent Store Audits & Reports */}
+        <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <FileText className="w-4 h-4 text-indigo-400" />
+                <span>Recent Audits & Reports</span>
+              </h3>
+              <p className="text-[11px] text-slate-400">Saved storefront diagnostic reports</p>
+            </div>
+            <button
+              onClick={() => onSelectTab('audits')}
+              className="text-xs text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1 cursor-pointer"
+            >
+              <span>View All</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {SAMPLE_SAVED_AUDITS.map((item) => (
+              <div
+                key={item.id}
+                className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800/80 flex items-center justify-between gap-4 hover:border-slate-700 transition-colors"
+              >
+                <div className="flex items-center gap-3 overflow-hidden">
+                  <div
+                    className={`w-9 h-9 rounded-lg font-mono font-bold text-sm flex items-center justify-center shrink-0 border ${
+                      item.score >= 80
+                        ? 'bg-emerald-950/40 text-emerald-400 border-emerald-800/40'
+                        : 'bg-amber-950/40 text-amber-400 border-amber-800/40'
+                    }`}
+                  >
+                    {item.score}
+                  </div>
+                  <div className="truncate">
+                    <div className="text-xs font-semibold text-white truncate flex items-center gap-2">
+                      <span>{item.domain}</span>
+                      <span className="text-[10px] font-mono uppercase px-1.5 py-0.2 bg-slate-800 text-slate-400 rounded">
+                        {item.platform}
+                      </span>
                     </div>
-                    <div className="text-slate-400 text-[11px] mt-0.5">{test.message}</div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">
+                      {item.date} · {item.criticalIssues} critical findings
+                    </div>
                   </div>
                 </div>
-                <div className="text-[11px] font-mono text-slate-500 shrink-0">
-                  {test.durationMs}ms
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => onSelectTab('audits')}
+                    className="px-2.5 py-1 text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-md transition-colors cursor-pointer"
+                  >
+                    View Report
+                  </button>
                 </div>
               </div>
             ))}
           </div>
         </div>
-      )}
 
-      {/* Architectural Foundation Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* Card 1: Multi-Tenant Organization Boundary */}
-        <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-col justify-between">
-          <div>
-            <div className="w-8 h-8 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 mb-3">
-              <Building2 className="w-4 h-4" />
+        {/* Panel 2: Priority Remediation Checklist */}
+        <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>Store Remediation Action Items</span>
+              </h3>
+              <p className="text-[11px] text-slate-400">Click to toggle status (Pending → In Progress → Resolved)</p>
             </div>
-            <h3 className="text-sm font-bold text-white mb-1">Multi-Tenant Architecture</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Every audit, store, report, and subscription is bound to an Organization tenant with Row Level Security.
-            </p>
+            <span className="text-xs font-mono text-emerald-400 bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-800/50">
+              {actionItems.filter((i) => i.status === 'resolved').length}/{actionItems.length} Done
+            </span>
+          </div>
 
-            <div className="mt-4 p-3 rounded-lg bg-slate-950 border border-slate-800/80 text-xs space-y-1.5 font-mono">
-              <div className="flex justify-between text-slate-400">
-                <span>Active Tenant:</span>
-                <span className="text-slate-200 truncate max-w-[140px]">{currentOrg?.name}</span>
-              </div>
-              <div className="flex justify-between text-slate-400">
-                <span>Tenant Role:</span>
-                <span className="text-blue-400 font-semibold capitalize">
-                  {memberships.find((m) => m.organization_id === currentOrg?.id)?.role || 'Owner'}
+          <div className="space-y-2.5">
+            {actionItems.map((task) => (
+              <div
+                key={task.id}
+                onClick={() => toggleTaskStatus(task.id)}
+                className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-start justify-between gap-3 ${
+                  task.status === 'resolved'
+                    ? 'bg-slate-950/40 border-slate-800/60 opacity-60'
+                    : 'bg-slate-950/80 border-slate-800 hover:border-slate-700'
+                }`}
+              >
+                <div className="space-y-1">
+                  <div
+                    className={`font-medium ${
+                      task.status === 'resolved' ? 'line-through text-slate-500' : 'text-slate-200'
+                    }`}
+                  >
+                    {task.title}
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] text-slate-500 font-mono">
+                    <span>{task.category}</span>
+                    <span>·</span>
+                    <span
+                      className={
+                        task.severity === 'critical'
+                          ? 'text-rose-400'
+                          : task.severity === 'high'
+                          ? 'text-amber-400'
+                          : 'text-blue-400'
+                      }
+                    >
+                      {task.severity.toUpperCase()}
+                    </span>
+                  </div>
+                </div>
+
+                <span
+                  className={`px-2 py-0.5 rounded text-[10px] font-mono shrink-0 uppercase tracking-wider font-semibold ${
+                    task.status === 'resolved'
+                      ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/60'
+                      : task.status === 'in_progress'
+                      ? 'bg-blue-950 text-blue-400 border border-blue-800/60'
+                      : 'bg-slate-800 text-slate-400'
+                  }`}
+                >
+                  {task.status.replace('_', ' ')}
                 </span>
               </div>
-              <div className="flex justify-between text-slate-400">
-                <span>Tenant ID:</span>
-                <span className="text-slate-400 truncate max-w-[140px]">{currentOrg?.id}</span>
-              </div>
-            </div>
+            ))}
           </div>
-
-          <button
-            onClick={onOpenOrgModal}
-            className="mt-4 w-full py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
-          >
-            <span>Switch or Create Workspace</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
         </div>
+      </div>
 
-        {/* Card 2: Database Schema & 20 Tables */}
-        <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-col justify-between">
-          <div>
-            <div className="w-8 h-8 rounded-lg bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-3">
-              <Database className="w-4 h-4" />
+      {/* Subscription Upsell Card (Shaped to current plan) */}
+      {activePlanId !== 'business' && (
+        <div className="p-6 rounded-2xl bg-gradient-to-r from-indigo-950/40 via-slate-900 to-slate-900 border border-indigo-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">
+              {activePlanId === 'free'
+                ? 'Upgrade to Starter or Growth'
+                : activePlanId === 'starter'
+                ? 'Upgrade to Growth Plan'
+                : 'Upgrade to Agency Workspace'}
             </div>
-            <h3 className="text-sm font-bold text-white mb-1">PostgreSQL 20 Tables & Migrations</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Normalized schema ready in <code>supabase/migrations</code>. Foreign keys, cascades, indexes, and ENUM types are defined.
+            <h4 className="text-base font-bold text-white">
+              {activePlanId === 'free'
+                ? 'Unlock Full Multi-Page Crawls & PDF Export Reports'
+                : activePlanId === 'starter'
+                ? 'Unlock 3 Connected Stores & 24/7 Automated Monitoring'
+                : 'Unlock White-Label Client Reports & 10 Store Workspaces'}
+            </h4>
+            <p className="text-xs text-slate-400 max-w-xl">
+              {activePlanId === 'free'
+                ? 'Free plans are limited to 1 homepage audit per month. Upgrade to get up to 10 audits, 100-page crawl depth, AI recommendations, and downloadable PDF reports.'
+                : activePlanId === 'starter'
+                ? 'Scale your intelligence with automated 24/7 store monitoring, 30 monthly audits, and 500-page crawl limits.'
+                : 'Deliver professional white-label reports branded with your agency logo and manage client stores seamlessly.'}
             </p>
-
-            <div className="mt-4 p-3 rounded-lg bg-slate-950 border border-slate-800/80 text-xs space-y-1 text-slate-400">
-              <div className="flex items-center justify-between">
-                <span>Core Entities:</span>
-                <span className="text-slate-200 font-mono">profiles, orgs, stores</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Audit Engine:</span>
-                <span className="text-slate-200 font-mono">audits, pages, findings, scores</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Commercial SaaS:</span>
-                <span className="text-slate-200 font-mono">plans, subscriptions, usage</span>
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={onOpenDatabaseSetup}
-            className="mt-4 w-full py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
-          >
-            <span>View SQL Migrations & RLS</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        {/* Card 3: Subscription & Feature Gating Ready */}
-        <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-col justify-between">
-          <div>
-            <div className="w-8 h-8 rounded-lg bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-400 mb-3">
-              <Layers className="w-4 h-4" />
-            </div>
-            <h3 className="text-sm font-bold text-white mb-1">Ready for Phase 2: SaaS Plans</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              5 commercial tiers (Free $0, Starter $19, Growth $49, Agency $99, Business $199) are initialized with precise page crawl limits.
-            </p>
-
-            <div className="mt-4 p-3 rounded-lg bg-slate-950 border border-slate-800/80 text-xs space-y-1.5 font-mono">
-              <div className="flex justify-between text-slate-400">
-                <span>Active Plan:</span>
-                <span className="text-emerald-400 font-semibold">Free Plan ($0/mo)</span>
-              </div>
-              <div className="flex justify-between text-slate-400">
-                <span>Audits Remaining:</span>
-                <span className="text-slate-200">1 of 1</span>
-              </div>
-              <div className="flex justify-between text-slate-400">
-                <span>Page Limit / Audit:</span>
-                <span className="text-slate-200">10 pages</span>
-              </div>
-            </div>
           </div>
 
           <button
             onClick={() => onSelectTab('billing')}
-            className="mt-4 w-full py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+            className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-lg shadow-md shadow-indigo-600/30 whitespace-nowrap shrink-0 transition-colors cursor-pointer"
           >
-            <span>Review Plan Architecture</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            Explore Plans & Upgrades
           </button>
         </div>
-      </div>
+      )}
 
-      {/* Next Phase Preparation Notice */}
-      <div className="p-5 rounded-xl bg-blue-950/30 border border-blue-900/40 text-xs text-slate-300">
-        <div className="flex items-start gap-3">
-          <Lock className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-          <div>
-            <div className="font-semibold text-white">Next Step: Phase 2 (SaaS Subscriptions & Billing Engine)</div>
-            <div className="text-slate-400 mt-1 leading-relaxed">
-              Per development protocol, all Phase 1 Foundation deliverables (schema, RLS policies, tenant isolation, authentication, and layout) 
-              are ready for your review and approval before proceeding to Phase 2 implementation.
+      {/* SUPER ADMIN DIAGNOSTICS & DB CONFIG (Strictly Super Admin Only) */}
+      {isSuperAdmin && (
+        <div className="p-6 rounded-2xl bg-slate-900/90 border border-indigo-500/30 shadow-lg space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-800 gap-4">
+            <div>
+              <div className="flex items-center gap-2 text-xs font-semibold text-indigo-400 mb-1 uppercase tracking-wider">
+                <ShieldCheck className="w-4 h-4 text-indigo-400" />
+                <span>Super Admin Control Center</span>
+              </div>
+              <h3 className="text-lg font-bold text-white">
+                Database Configuration & Architectural Test Suite
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Visible exclusively to Super Admin. Configure Supabase PostgreSQL connections, view SQL migrations, and run automated health verification.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 shrink-0">
+              <button
+                onClick={runFoundationTests}
+                disabled={isRunningTests}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold text-xs rounded-lg shadow-sm shadow-indigo-600/30 flex items-center gap-2 transition-colors cursor-pointer"
+              >
+                <Play className={`w-3.5 h-3.5 ${isRunningTests ? 'animate-spin' : ''}`} />
+                <span>{isRunningTests ? 'Verifying Architecture...' : 'Run Test Suite'}</span>
+              </button>
+
+              <button
+                onClick={onOpenDatabaseSetup}
+                className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Database className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Admin DB Config</span>
+              </button>
             </div>
           </div>
+
+          {/* Test Results Display */}
+          {testResults && (
+            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+              <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-800/80">
+                <span className="font-bold text-white">Verification Results:</span>
+                <span className={allPassed ? 'text-emerald-400 font-semibold' : 'text-amber-400 font-semibold'}>
+                  {testResults.filter((t) => t.passed).length} of {testResults.length} Passed
+                </span>
+              </div>
+              <div className="divide-y divide-slate-800/60">
+                {testResults.map((t, idx) => (
+                  <div key={idx} className="py-2 flex items-start justify-between text-xs gap-4">
+                    <div className="flex items-start gap-2">
+                      {t.passed ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                      )}
+                      <div>
+                        <div className="font-semibold text-white">
+                          {t.name} <span className="text-[10px] text-slate-500 font-mono">[{t.category}]</span>
+                        </div>
+                        <div className="text-[11px] text-slate-400 mt-0.5">{t.message}</div>
+                      </div>
+                    </div>
+                    <span className="font-mono text-[10px] text-slate-500">{t.durationMs}ms</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 };

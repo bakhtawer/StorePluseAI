@@ -55,11 +55,24 @@ export const AuditReportView: React.FC<AuditReportViewProps> = ({
   const highCount = report.findings.filter((f) => f.severity === 'high').length;
   const mediumCount = report.findings.filter((f) => f.severity === 'medium').length;
 
+  const [showAuthGateModal, setShowAuthGateModal] = useState(false);
+  const [pendingExportType, setPendingExportType] = useState<'pdf' | 'json' | null>(null);
+
   const handlePrint = () => {
+    if (!isAuthenticated) {
+      setPendingExportType('pdf');
+      setShowAuthGateModal(true);
+      return;
+    }
     window.print();
   };
 
   const handleDownloadJson = () => {
+    if (!isAuthenticated) {
+      setPendingExportType('json');
+      setShowAuthGateModal(true);
+      return;
+    }
     const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -88,7 +101,7 @@ export const AuditReportView: React.FC<AuditReportViewProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800 print:hidden">
         <button
           onClick={onNewAudit}
-          className="flex items-center gap-2 text-xs font-medium text-slate-400 hover:text-white transition-colors"
+          className="flex items-center gap-2 text-xs font-medium text-slate-400 hover:text-white transition-colors cursor-pointer"
         >
           <RefreshCw className="w-3.5 h-3.5" />
           <span>Analyze Another Store</span>
@@ -97,7 +110,7 @@ export const AuditReportView: React.FC<AuditReportViewProps> = ({
         <div className="flex items-center gap-2.5">
           <button
             onClick={handleCopySummary}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-900 border border-slate-700/80 text-slate-300 hover:text-white text-xs font-medium transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700/80 text-slate-300 hover:text-white text-xs font-medium transition-colors cursor-pointer"
           >
             {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
             <span>{copied ? 'Summary Copied' : 'Copy Summary'}</span>
@@ -105,18 +118,18 @@ export const AuditReportView: React.FC<AuditReportViewProps> = ({
 
           <button
             onClick={handleDownloadJson}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-900 border border-slate-700/80 text-slate-300 hover:text-white text-xs font-medium transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700/80 text-slate-300 hover:text-white text-xs font-medium transition-colors cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Export JSON</span>
+            <span>Export JSON {!isAuthenticated && <Lock className="w-3 h-3 text-indigo-400 ml-0.5" />}</span>
           </button>
 
           <button
             onClick={handlePrint}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-sm shadow-blue-600/30 transition-colors"
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm shadow-indigo-600/30 transition-colors cursor-pointer"
           >
             <Printer className="w-3.5 h-3.5" />
-            <span>Export PDF / Print</span>
+            <span>Export PDF / Print {!isAuthenticated && <Lock className="w-3 h-3 text-indigo-200 ml-0.5" />}</span>
           </button>
         </div>
       </div>
@@ -428,6 +441,63 @@ export const AuditReportView: React.FC<AuditReportViewProps> = ({
           ))}
         </div>
       </div>
+
+      {/* Guest Auth Export Modal */}
+      {showAuthGateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200 print:hidden">
+          <div className="relative w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 sm:p-7 overflow-hidden text-center">
+            {/* Ambient glow */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-24 bg-indigo-600/20 blur-[50px] pointer-events-none rounded-full" />
+
+            <div className="w-12 h-12 rounded-2xl bg-indigo-600/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400 mx-auto mb-4">
+              <Download className="w-6 h-6" />
+            </div>
+
+            <h3 className="text-xl font-extrabold text-white tracking-tight">
+              Sign In or Sign Up to Export
+            </h3>
+
+            <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+              You are currently viewing as a guest. Create a free account or log in to export your complete{' '}
+              <span className="font-semibold text-white">{pendingExportType === 'pdf' ? 'PDF Audit Report' : 'Raw JSON Diagnostic Data'}</span>{' '}
+              and track ongoing issue remediation in your personal dashboard.
+            </p>
+
+            <div className="mt-6 space-y-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAuthGateModal(false);
+                  onOpenAuth('signup');
+                }}
+                className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl shadow-md shadow-indigo-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>Create Free Account to Export</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAuthGateModal(false);
+                  onOpenAuth('login');
+                }}
+                className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700/80 transition-colors cursor-pointer"
+              >
+                Sign In to Existing Account
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowAuthGateModal(false)}
+                className="w-full py-2 text-xs text-slate-500 hover:text-slate-400 transition-colors cursor-pointer"
+              >
+                Continue Reviewing Report in Browser
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

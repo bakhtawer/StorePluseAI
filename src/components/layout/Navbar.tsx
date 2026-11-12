@@ -71,11 +71,11 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Zone 3: Primary action */}
         <div className="flex items-center gap-3 shrink-0">
-          {profile?.system_role === 'admin' && (
+          {Boolean(user && profile?.system_role === 'admin') && (
             <button
               onClick={onOpenDatabaseSetup}
               title="Super Admin Database Configuration"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md border border-slate-700 bg-slate-900/80 text-slate-300 hover:text-white hover:border-slate-600 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:text-white hover:bg-indigo-500/20 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
               <Database className="w-3.5 h-3.5 text-indigo-400" />
               <span className="hidden sm:inline">Admin Config</span>

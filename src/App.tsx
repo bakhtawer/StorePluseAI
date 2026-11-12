@@ -116,7 +116,7 @@ function MainApp() {
               </div>
 
               <div className="flex items-center gap-3 text-[11px]">
-                {profile?.system_role === 'admin' && (
+                {Boolean(user && profile?.system_role === 'admin') && (
                   <>
                     <button
                       onClick={() => setDbModalOpen(true)}
@@ -142,6 +142,7 @@ function MainApp() {
                   onOpenDatabaseSetup={() => setDbModalOpen(true)}
                   onOpenOrgModal={() => setOrgModalOpen(true)}
                   onSelectTab={(tab) => setDashboardTab(tab)}
+                  onReportGenerated={handleReportGenerated}
                 />
               )}
               {dashboardTab === 'audits' && (
@@ -154,7 +155,9 @@ function MainApp() {
               {dashboardTab === 'stores' && <StoresPlaceholderView />}
               {dashboardTab === 'actions' && <ActionItemsPlaceholderView />}
               {dashboardTab === 'monitoring' && <MonitoringPlaceholderView />}
-              {dashboardTab === 'billing' && <BillingView />}
+              {dashboardTab === 'billing' && (
+                <BillingView onSelectTab={(tab) => setDashboardTab(tab)} />
+              )}
               {dashboardTab === 'team' && (
                 <TeamWorkspacesView onOpenOrgModal={() => setOrgModalOpen(true)} />
               )}
@@ -163,6 +166,7 @@ function MainApp() {
                   onOpenDatabaseSetup={() => setDbModalOpen(true)}
                   onOpenOrgModal={() => setOrgModalOpen(true)}
                   onSelectTab={(tab) => setDashboardTab(tab)}
+                  onReportGenerated={handleReportGenerated}
                 />
               )}
             </main>
@@ -185,7 +189,7 @@ function MainApp() {
               <button onClick={() => setCurrentView('pricing')} className="hover:text-indigo-400 transition-colors cursor-pointer">
                 Plans & Pricing
               </button>
-              {profile?.system_role === 'admin' && (
+              {Boolean(user && profile?.system_role === 'admin') && (
                 <button onClick={() => setDbModalOpen(true)} className="text-indigo-400/80 hover:text-indigo-400 transition-colors font-medium cursor-pointer">
                   Admin DB Config
                 </button>
